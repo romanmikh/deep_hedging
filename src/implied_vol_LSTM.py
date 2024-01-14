@@ -8,11 +8,16 @@ from sklearn.metrics import mean_squared_error
 import matplotlib.pyplot as plt
 
 ###############################################################################
-# Sequential LSTM model applied to realised volatility of AAPL stock		  #
+# Sequential LSTM model applied to realised volatility of AAPL stock to		  #
+# predict impleid volatility. This implied volatiltiy can be compared to the  #
+# market's prediction of implied volatility and traded on. If our model 	  #
+# predicts a higher implied vol than the mark to market, we buy out of the	  #
+# money calls with the corresponding expiries and strikes. We implement a 	  #
+# simple version of this for ATM implied vol.								  #
 ###############################################################################
 
 # Fetch historical data for AAPL
-aapl_data = yf.download('AAPL', start='2020-01-01', end='2021-01-01')
+aapl_data = yf.download('AAPL', start='2015-01-01', end='2021-01-01')
 close_prices = aapl_data['Close'].values
 
 # Calculate realized volatility (rolling window)
@@ -39,6 +44,7 @@ time_step = 3
 train_size = int(len(volatility) * 0.75)  # >0.6 yields accurate results
 test_size = len(volatility) - train_size
 train_data, test_data = volatility[0:train_size,:], volatility[train_size:len(volatility),:1]
+print(test_data)
 
 # Reshape into X=t,t+1,t+2,...,t+time_step and Y=t+time_step+1
 X_train, y_train = create_dataset(train_data, time_step)
@@ -80,6 +86,7 @@ train_predict_plot[time_step:len(train_predict)+time_step, :] = train_predict
 test_predict_plot = np.empty_like(volatility)
 test_predict_plot[:, :] = np.nan
 test_predict_plot[len(train_predict)+(time_step*2)+1:len(volatility)-1, :] = test_predict
+print(test_predict)
 
 # Plot baseline and predictions
 plt.figure(figsize=(10, 6))
@@ -91,3 +98,13 @@ plt.xlabel('Time')
 plt.ylabel('Volatility')
 plt.legend()
 plt.show()
+
+# Save to CSV
+predicted_vol_test = test_predict.reshape(-1)
+realized_vol_test = y_test.reshape(-1)
+data_to_save = {
+    "Realized_Volatility": realized_vol_test, 
+    "Predicted_Volatility": predicted_vol_test
+}
+df_to_save = pd.DataFrame(data_to_save)
+df_to_save.to_csv('volatility_predictions.csv', index=False)
